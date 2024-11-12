@@ -18,7 +18,7 @@ def get_args():
     parser.add_argument('--output_name', type=str, required=True)
     parser.add_argument('--model_name', type=str, default=None)
 
-    parser.add_argument('--eval_type', type=str, choices=['trained', 'trained-new', 'not-trained'], default='trained')
+    parser.add_argument('--eval_type', type=str, choices=['trained', 'trained-new', 'not-trained', 'trained-new-c-only'], default='trained')
     parser.add_argument('--sec_prompting', type=str, choices=['none', 'generic', 'specific'], default='none')
     parser.add_argument('--vul_type', type=str, default=None)
 
@@ -243,6 +243,8 @@ def main():
         vul_types = NOT_TRAINED
     elif args.eval_type == 'trained-new':
         vul_types = NEW_EVALS
+    elif args.eval_type == 'trained-new-c-only':
+        vul_types = NEW_EVALS_C_ONLY
     else:
         vul_types = CWES_TRAINED
 

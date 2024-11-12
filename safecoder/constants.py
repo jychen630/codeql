@@ -136,6 +136,13 @@ NEW_EVALS = [
     'cwe-916',
 ]
 
+NEW_EVALS_C_ONLY = [
+    'cwe-119',
+    'cwe-611',
+    'cwe-676',
+    'cwe-732',
+]
+
 NOT_TRAINED = [
     'cwe-020',
     'cwe-094',
