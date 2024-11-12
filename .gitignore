@@ -2,3 +2,5 @@ codeql/
 __pycache__/
 *.pyc
 data_eval/
+data_eval_*/
+experiments*/*
