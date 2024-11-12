@@ -8,11 +8,19 @@ import libcst as cst
 from libcst.metadata import PositionProvider
 from libcst._position import CodePosition
 from collections import OrderedDict
-
+from tqdm import tqdm
 from safecoder.utils import set_logging, set_seed, get_cp_args
 from safecoder.constants import PRETRAINED_MODELS, CHAT_MODELS, CWES_TRAINED, NEW_EVALS, NOT_TRAINED
 from safecoder.evaler import EvalerCodePLM, EvalerCodeFT, EvalerOpenAI, EvalerChat
+import warnings
+warnings.filterwarnings("ignore")  # Suppress all warnings
+warnings.simplefilter("ignore")    # Alternative method to suppress all warnings
 
+# Or if you want to be specific:
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_name', type=str, required=True)
@@ -28,8 +36,8 @@ def get_args():
     parser.add_argument('--max_gen_len', type=int, default=256)
     parser.add_argument('--top_p', type=float, default=0.95)
 
-    parser.add_argument('--experiments_dir', type=str, default='../experiments/sec_eval')
-    parser.add_argument('--data_dir', type=str, default='../data_eval/sec_eval')
+    parser.add_argument('--experiments_dir', type=str, default='experiments/sec_eval')
+    parser.add_argument('--data_dir', type=str, default='data_eval/sec_eval')
     parser.add_argument('--model_dir', type=str, default='../trained')
 
     parser.add_argument('--seed', type=int, default=1)
@@ -142,7 +150,7 @@ def filter_cwe78_fps(src_dir, csv_path):
 def eval_scenario(args, evaler, vul_type, scenario):
     data_dir = os.path.join(args.data_dir, vul_type, scenario)
     output_dir = os.path.join(args.output_dir, vul_type, scenario)
-    os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True) # my change
 
     with open(os.path.join(data_dir, 'info.json')) as f:
         info = json.load(f)
@@ -158,7 +166,7 @@ def eval_scenario(args, evaler, vul_type, scenario):
 
     for srcs, name in [(output_srcs, 'output_srcs'), (non_parsed_srcs, 'non_parsed_srcs')]:
         src_dir = os.path.join(output_dir, name)
-        os.makedirs(src_dir)
+        os.makedirs(src_dir, exist_ok=True) # my change
         for i, src in enumerate(srcs):
             findex = f'{str(i).zfill(2)}'
             if info['language'] == 'java':
@@ -188,6 +196,9 @@ def eval_scenario(args, evaler, vul_type, scenario):
         db_dir = os.path.join(output_dir, 'codeql_db')
         codeql_create_db(info, src_dir, db_dir)
         codeql_analyze(info, db_dir, csv_path)
+        if not os.path.exists(csv_path):
+            open(csv_path, 'w').close()
+
         if vul_type == 'cwe-078' and info['language'] == 'py':
             filter_cwe78_fps(src_dir, csv_path)
         with open(csv_path) as csv_f:
@@ -213,16 +224,20 @@ def eval_all(args, evaler, vul_types):
     for vul_type in vul_types:
         output_dir = os.path.join(args.output_dir, vul_type)
         data_dir = os.path.join(args.data_dir, vul_type)
+        print(f'{output_dir} <- output_dir')
+        print(f'{data_dir} <- data_dir')
         os.makedirs(output_dir, exist_ok=True) # my change
 
         with open(os.path.join(output_dir, 'result.jsonl'), 'w') as f:
-            for scenario in list(sorted(os.listdir(data_dir))):
+            scenarios = list(sorted(os.listdir(data_dir)))
+            for scenario in tqdm(scenarios, desc=f'Evaluating {vul_type}'):
                 d = eval_scenario(args, evaler, vul_type, scenario)
                 s = json.dumps(d)
                 args.logger.info(s)
                 f.write(s+'\n')
 
 def main():
+    # dont understand why not model.eval()
     args = get_args()
     os.makedirs(args.output_dir, exist_ok=True)
     set_logging(args, None)
