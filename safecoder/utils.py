@@ -229,7 +229,7 @@ def try_parse(code, info):
             cmd = 'NODE_PATH=$(npm root --quiet -g) npx babel --presets @babel/preset-react --no-babelrc'
         try:
             process = subprocess.run(cmd, shell=True, timeout=5, input=code.encode(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            if process.returncode == 0:
+            if process.returncode == 0: # command executed successfully
                 return 0
             else:
                 return 1

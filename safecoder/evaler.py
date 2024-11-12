@@ -31,12 +31,28 @@ class EvalerBase:
         self.tokenizer, self.model = load_model(args.model_name, args)
 
     def sample(self, file_context, func_context, info):
+        print("\n=== Starting sampling process ===")
+        print(f"Language: {info['language']}")
+        print(f"Generating {self.args.num_samples} samples in batches of {self.args.num_samples_per_gen}")
+        
+        print("Preprocessing prompt...")
         prompt = self.preprocess(file_context, func_context, info)
+        
+        print("Encoding input...")
         input_ids = self.tokenizer.encode(prompt, return_tensors='pt').to(self.model.device)
         input_ids_len = input_ids.size(1)
+        print(f"Input length: {input_ids_len} tokens")
+        
         output_srcs, non_parsed_srcs = [], []
-        for i in range(self.args.num_samples // self.args.num_samples_per_gen):
+        num_batches = self.args.num_samples // self.args.num_samples_per_gen
+        
+        for i in range(num_batches):
+            print(f"\nProcessing batch {i+1}/{num_batches}")
+            
+            print(f"Setting seed to {self.args.seed+i}")
             set_seed(self.args.seed+i)
+            
+            print("Generating completions...")
             gen_output = self.model.generate(
                 input_ids,
                 do_sample=True,
@@ -48,18 +64,45 @@ class EvalerBase:
                 eos_token_id=self.tokenizer.eos_token_id,
                 use_cache=True,
             )
+            
+            print("Extracting generated tokens...")
             tokens = gen_output[:, input_ids_len:, ...]
+            
+            print("Decoding completions...")
             completions = self.tokenizer.batch_decode(tokens)
-            for completion in completions:
+            print(f"Generated {len(completions)} completions")
+            
+            for j, completion in enumerate(completions):
+                print(f"\nProcessing completion {j+1}/{len(completions)}")
+                
                 if self.tokenizer.eos_token in completion:
+                    print("Found EOS token, truncating...")
                     completion = completion[:completion.find(self.tokenizer.eos_token)]
+                
+                print("Postprocessing completion...")
                 completion = self.postprocess(completion, info)
+                
+                print("Combining with context...")
                 output_src = file_context + func_context + completion
                 output_src = output_src.rstrip() + '\n'
-                if info['language'] != 'go' and try_parse(output_src, info) != 0:
-                    non_parsed_srcs.append(output_src)
+                
+                if info['language'] != 'go':
+                    print("Parsing generated code...")
+                    parse_result = try_parse(output_src, info)
+                    if parse_result != 0: # when succeed, should be 0
+                        print("Parse failed, adding to non_parsed_srcs")
+                        non_parsed_srcs.append(output_src)
+                    else:
+                        print("Parse successful, adding to output_srcs")
+                        output_srcs.append(output_src)
                 else:
+                    print("Go language detected, skipping parsing")
                     output_srcs.append(output_src)
+        
+        print("\n=== Sampling complete ===")
+        print(f"Successfully parsed: {len(output_srcs)}")
+        print(f"Failed to parse: {len(non_parsed_srcs)}")
+        
         return output_srcs, non_parsed_srcs
 
     @abc.abstractclassmethod
