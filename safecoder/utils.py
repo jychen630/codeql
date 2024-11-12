@@ -14,10 +14,10 @@ from tabulate import tabulate
 from termcolor import colored
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
 
-from .constants import PRETRAINED_MODELS, CHAT_MODELS
+from .constants import PRETRAINED_MODELS, CHAT_MODELS, CHECKPOINT_MODELS
 from .sven_models import GPTBigCodeForPrefix, PhiPrefix
 
 logger = logging.getLogger()
@@ -146,6 +146,46 @@ def load_model(model_name, args):
             model_dir = PRETRAINED_MODELS[model_name]
         elif model_name in CHAT_MODELS:
             model_dir = CHAT_MODELS[model_name]
+        elif model_name in CHECKPOINT_MODELS:
+            if model_name == 'starcoderbase-1b-kto':
+                model_dir = "/local/nlp/junyao/huggingface/20241111_044108_starcoder_/LATEST/policy.pt"
+                base_model_name = "bigcode/starcoderbase-1b"
+                assert os.path.exists(model_dir)
+                tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+                model = AutoModelForCausalLM.from_pretrained(base_model_name, device_map='auto', trust_remote_code=True)
+                state_dict = torch.load(model_dir)
+                print(f"Fine-tuned model state_dict loaded from {model_dir}")
+                print("Attaching fine-tuned state_dict to base model...")
+                model.load_state_dict(state_dict['state'])
+                return tokenizer, model
+            elif model_name == 'codellama-7b-kto':
+                model_dir = "/local/nlp/junyao/huggingface/20241110_072946_codellama7b_/LATEST/policy.pt"
+                base_model_name = "codellama/CodeLlama-7b-hf"
+                assert os.path.exists(model_dir)
+                tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+                # wrong code below
+                state_dict = torch.load(model_dir, map_location='cpu')
+                print("Quantizing model...")
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
+                    bnb_4bit_use_double_quant=True,
+                )
+                model = AutoModelForCausalLM.from_pretrained(
+                    base_model_name,
+                    quantization_config=bnb_config,
+                    device_map="auto",
+                    torch_dtype=torch.bfloat16,
+                    low_cpu_mem_usage=True,
+                )
+
+                model.load_state_dict(state_dict['state']) # likely will error
+                print(f"Fine-tuned model state_dict loaded from {model_dir}")
+                print("Attaching fine-tuned state_dict to base model...")
+                return tokenizer, model
+            else:
+                raise NotImplementedError()
         else:
             if 'checkpoint-epoch' in model_name:
                 model_dir = os.path.join(args.model_dir, model_name)

@@ -10,7 +10,7 @@ from libcst._position import CodePosition
 from collections import OrderedDict
 from tqdm import tqdm
 from safecoder.utils import set_logging, set_seed, get_cp_args
-from safecoder.constants import PRETRAINED_MODELS, CHAT_MODELS, CWES_TRAINED, NEW_EVALS, NOT_TRAINED
+from safecoder.constants import PRETRAINED_MODELS, CHECKPOINT_MODELS, CHAT_MODELS, CWES_TRAINED, NEW_EVALS, NOT_TRAINED, NEW_EVALS_C_ONLY
 from safecoder.evaler import EvalerCodePLM, EvalerCodeFT, EvalerOpenAI, EvalerChat
 import warnings
 warnings.filterwarnings("ignore")  # Suppress all warnings
@@ -246,6 +246,11 @@ def main():
     if args.model_name in CHAT_MODELS:
         evaler = EvalerChat(args)
     elif args.model_name in PRETRAINED_MODELS:
+        evaler = EvalerCodePLM(args)
+    elif args.model_name in CHECKPOINT_MODELS:
+        print('-'*100)
+        print(f'using checkpoint model: {args.model_name}')
+        print('-'*100)
         evaler = EvalerCodePLM(args)
     elif args.model_name.startswith(('gpt-3.5', 'gpt-4')):
         evaler = EvalerOpenAI(args)
