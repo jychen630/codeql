@@ -231,7 +231,7 @@ PRETRAINED_MODELS = {
 
 CHECKPOINT_MODELS = {
     'starcoderbase-1b-kto': '/local/nlp/junyao/huggingface/20241111_044108_starcoder_/LATEST/policy.pt',
-    'codellama-7b-kto': '/local/nlp/junyao/huggingface/20241110_072946_codellama7b_/LATEST/policy.pt',
+    'codellama-7b-kto': '/scratch/jc9723/huggingface/20241110_072946_codellama7b_/LATEST/policy.pt',
 }
 
 CHAT_MODELS = {
