@@ -159,28 +159,17 @@ def load_model(model_name, args):
                 model.load_state_dict(state_dict['state'])
                 return tokenizer, model
             elif model_name == 'codellama-7b-kto':
-                model_dir = "/local/nlp/junyao/huggingface/20241110_072946_codellama7b_/LATEST/policy.pt"
+                model_dir = "/scratch/jc9723/huggingface/20241110_072946_codellama7b_/LATEST/policy.pt"
                 base_model_name = "codellama/CodeLlama-7b-hf"
                 assert os.path.exists(model_dir)
                 tokenizer = AutoTokenizer.from_pretrained(base_model_name)
-                # wrong code below
                 state_dict = torch.load(model_dir, map_location='cpu')
-                print("Quantizing model...")
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.bfloat16,
-                    bnb_4bit_use_double_quant=True,
-                )
                 model = AutoModelForCausalLM.from_pretrained(
                     base_model_name,
-                    quantization_config=bnb_config,
                     device_map="auto",
-                    torch_dtype=torch.bfloat16,
                     low_cpu_mem_usage=True,
                 )
-
-                model.load_state_dict(state_dict['state']) # likely will error
+                model.load_state_dict(state_dict['state'])
                 print(f"Fine-tuned model state_dict loaded from {model_dir}")
                 print("Attaching fine-tuned state_dict to base model...")
                 return tokenizer, model
@@ -195,7 +184,14 @@ def load_model(model_name, args):
 
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
         if model_name in PRETRAINED_MODELS or model_name == 'deepseek':
-            model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', trust_remote_code=True)
+            if model_name == 'codellama-7b':
+                model = AutoModelForCausalLM.from_pretrained(
+                    "codellama/CodeLlama-7b-hf",
+                    device_map="auto",
+                    low_cpu_mem_usage=True,
+                )
+            else:
+                model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', trust_remote_code=True)
         else:    
             model = AutoModelForCausalLM.from_pretrained(model_dir, device_map='auto', trust_remote_code=True, **{'vocab_size': len(tokenizer)})
         model.resize_token_embeddings(len(tokenizer))
